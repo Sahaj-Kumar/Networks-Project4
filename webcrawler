@@ -10,32 +10,44 @@ from lxml import html
 
 print("Hello world!")
 
-username = sys.argv[1]
-password = sys.argv[2]
-LOGIN_PAGE = "http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/"
-HOME_PAGE = "http://fring.ccs.neu.edu/fakebook/"
-
-csrf_token = None
-session_ID = None
+SEEN = []
+FRONTIER = []
+FLAGS = []
 
 class MyHTMLParser(HTMLParser):
 
   def handle_starttag(self, tag, attrs):
     if tag == 'input' and attrs[1] == ('name', 'csrfmiddlewaretoken'):
-      print("The code is: " + attrs[2][1])
+      #print("The code is: " + attrs[2][1])
       global csrf_token 
       csrf_token = attrs[2][1]
-
-    else:
-      print("Encountered a start tag: " + tag + ", atts: " + str(attrs))
+    elif tag == 'a':
+      link = attrs[0][1]
+      if link not in SEEN and link not in FRONTIER and '/fakebook/' in link:
+        #print("new link!: " + link)
+        FRONTIER.append(link)
+    #else:
+    #  print("Encountered a start tag: " + tag + ", atts: " + str(attrs))
  
-  def handle_endtag(self, tag):
-    print("Encountered an end tag: " + tag)
-
   def handle_data(self, data):
-    if data != "":
-      print("Encountered Data: |" + data + "|")
+    if "FLAG" in data:
+      flag = data[6:]
+      print(flag)
+      FLAGS.append(flag)
 
+username = sys.argv[1]
+password = sys.argv[2]
+LOGIN_PAGE = "http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/"
+HOME_PAGE = "http://fring.ccs.neu.edu/fakebook/"
+
+
+HTML_PARSER = MyHTMLParser()
+
+#TODO add bad links
+
+
+csrf_token = None
+session_ID = None
 
 def GET(url):
   #global sock
@@ -90,47 +102,16 @@ def getCookies():
 
   return cookie
 
-#parsed_url = urlparse.urlparse(LOGIN_PAGE)
-#print(parsed_url)
-
-#sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#sock.connect((parsed_url.netloc, 80))
-
-#sock.send("GET " + parsed_url.path + " HTTP/1.1" + "\nHost: " + parsed_url.netloc + "\nCookie: " + "\r\n\r\n")
-#result = sock.recv(20000)
 result = GET(LOGIN_PAGE)
 print(result)
 
 split_result = result.split("\r\n")
 
 print(result)
-MyHTMLParser().feed(result)
+HTML_PARSER.feed(result)
 print(csrf_token)
 
-
-#post_msg = "POST " + parsed_url.path + "?next=/fakebook/" + " HTTP/1.1" + "\nHost: " + parsed_url.netloc
 content = "username=" + username + "&password=" + password + "&csrfmiddlewaretoken=" + csrf_token + "&next=/fakebook/"
-#content_length = "Content-Length: " + str(len(content))
-#content_type = "Content-Type: application/x-www-form-urlencoded"
-#connection = "Connection: keep-alive"
-#cookie = "Cookie: csrftoken=" + csrf_token
-
-
-#print(post_msg)
-#print(content)
-#print(content_length)
-#print(content_type)
-
-#whole_post = post_msg + "\r\n" + cookie + "\r\n" + content_type + "\r\n" + content_length + "\r\n\r\n" + content
-
-#print(whole_post)
-
-
-
-#TODO handle cookies
-#TODO Connection: Keepalive
-
-#sock.send(whole_post)
 
 result2 = POST(LOGIN_PAGE, content)
 print(result2)
@@ -140,16 +121,21 @@ session_ID = sessionIDtemp[10:len(sessionIDtemp) - 1]
  
 print(session_ID)
 
-#sock.send("GET /fakebook/ HTTP/1.1\r\n"
-#		"Host: " + parsed_url.netloc + "\r\n"
-#		"Referer: " + LOGIN_PAGE + "\r\n"
-#		"Cookie: " + sessionIDtemp + "\r\n\r\n")
 
 foo = GET(HOME_PAGE)
 print(foo)
 #foo = sock.recv(100000)
-MyHTMLParser().feed(foo)
+HTML_PARSER.feed(foo)
 
-#sock.close()
+print(FRONTIER)
+
+while len(FLAGS) < 5 and FRONTIER:
+  site = FRONTIER[0]
+  
+  result = GET("http://fring.ccs.neu.edu" + site)
+  HTML_PARSER.feed(result)
+
+  FRONTIER.remove(site)
+
 
 
