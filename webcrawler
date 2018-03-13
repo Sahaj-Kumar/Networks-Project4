@@ -1,0 +1,49 @@
+#!/usr/bin/python -u
+# CS3700
+# Project 4
+
+import sys
+import urlparse
+import socket
+from HTMLParser import HTMLParser
+from lxml import html
+
+print("Hello world!")
+
+username = sys.argv[1]
+password = sys.argv[2]
+LOGIN_PAGE = "http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/"
+#HOST = "http://fring.ccs.neu.edu"
+
+class MyHTMLParser(HTMLParser):
+  def handle_starttag(self, tag, attrs):
+    if tag == 'input' and attrs[1] == ('name', 'csrfmiddlewaretoken'):
+      print "wow"
+    else:
+      print("Encountered a start tag: " + tag + ", atts: " + str(attrs))
+ 
+  def handle_endtag(self, tag):
+    print("Encountered an end tag: " + tag)
+
+  def handle_data(self, data):
+    if data != "":
+      print("Encountered Data: |" + data + "|")
+
+
+parsed_url = urlparse.urlparse(LOGIN_PAGE)
+print(parsed_url)
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect((parsed_url.netloc, 80))
+
+sock.send("GET " + parsed_url.path + "\nHOST: " + parsed_url.netloc)
+
+result = sock.recv(20000)
+
+split_result = result.split("\r\n")
+print(result)
+print(MyHTMLParser().feed(result))
+
+sock.close()
+
+
