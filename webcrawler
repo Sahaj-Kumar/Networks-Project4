@@ -13,19 +13,18 @@ print("Hello world!")
 username = sys.argv[1]
 password = sys.argv[2]
 LOGIN_PAGE = "http://fring.ccs.neu.edu/accounts/login/?next=/fakebook/"
+HOME_PAGE = "http://fring.ccs.neu.edu/fakebook/"
 
-scrf_token = None
+csrf_token = None
 session_ID = None
 
 class MyHTMLParser(HTMLParser):
 
-  
-
   def handle_starttag(self, tag, attrs):
     if tag == 'input' and attrs[1] == ('name', 'csrfmiddlewaretoken'):
       print("The code is: " + attrs[2][1])
-      global scrf_token 
-      scrf_token = attrs[2][1]
+      global csrf_token 
+      csrf_token = attrs[2][1]
 
     else:
       print("Encountered a start tag: " + tag + ", atts: " + str(attrs))
@@ -38,49 +37,102 @@ class MyHTMLParser(HTMLParser):
       print("Encountered Data: |" + data + "|")
 
 
-parsed_url = urlparse.urlparse(LOGIN_PAGE)
-print(parsed_url)
+def GET(url):
+  #global sock
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect((parsed_url.netloc, 80))
+  parsed_url = urlparse.urlparse(url)
+  sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  sock.connect((parsed_url.netloc, 80))
 
-#sock.send("GET " + parsed_url.path + "\nHOST: " + parsed_url.netloc)
-sock.send("GET " + parsed_url.path + " HTTP/1.1" + "\nHost: " + parsed_url.netloc + "\r\n\r\n")
+  #print("In GET: " + path + " | " + host)
+  sock.send("GET " + parsed_url.path + " HTTP/1.1" + "\n" + "Host: " + parsed_url.netloc + "\n" + getCookies() + "\r\n\r\n")
+
+  received = sock.recv(100000)
+
+  sock.close()
+  return received
+
+def POST(url, content):
+
+  parsed_url = urlparse.urlparse(url)
+
+  post_msg = "POST " + parsed_url.path + "?next=/fakebook/" + " HTTP/1.1" + "\nHost: " + parsed_url.netloc
+  content_length = "Content-Length: " + str(len(content))
+  content_type = "Content-Type: application/x-www-form-urlencoded"
+  #connection = keep-alive
+  cookie = getCookies()
+  print(cookie) 
+  
+  whole_post = post_msg + "\r\n" + cookie + "\r\n" + content_type + "\r\n" + content_length + "\r\n\r\n" + content
+
+  sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  sock.connect((parsed_url.netloc, 80))
+
+  sock.send(whole_post)
+
+  received = sock.recv(100000)
+  sock.close()
+  return received
 
 
-result = sock.recv(20000)
+def getCookies():
+  cookie = "Cookie: "
+  temp = False
+  if csrf_token is not None:
+    cookie += "csrftoken=" + csrf_token
+    temp = True
+  
+  if session_ID is not None:
+    if temp:
+      cookie += "; sessionid=" + session_ID
+    #else:
+    #  cookie += "sessionid=" + session_ID
+
+  return cookie
+
+#parsed_url = urlparse.urlparse(LOGIN_PAGE)
+#print(parsed_url)
+
+#sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#sock.connect((parsed_url.netloc, 80))
+
+#sock.send("GET " + parsed_url.path + " HTTP/1.1" + "\nHost: " + parsed_url.netloc + "\nCookie: " + "\r\n\r\n")
+#result = sock.recv(20000)
+result = GET(LOGIN_PAGE)
+print(result)
 
 split_result = result.split("\r\n")
 
 print(result)
 MyHTMLParser().feed(result)
-print(scrf_token)
+print(csrf_token)
 
 
-post_msg = "POST " + parsed_url.path + "?next=/fakebook/" + " HTTP/1.1" + "\nHost: " + parsed_url.netloc
-content = "username=" + username + "&password=" + password + "&csrfmiddlewaretoken=" + scrf_token + "&next=/fakebook/"
-content_length = "Content-Length: " + str(len(content))
-content_type = "Content-Type: application/x-www-form-urlencoded"
-connection = "Connection: keep-alive"
-cookie = "Cookie: csrftoken=" + scrf_token
+#post_msg = "POST " + parsed_url.path + "?next=/fakebook/" + " HTTP/1.1" + "\nHost: " + parsed_url.netloc
+content = "username=" + username + "&password=" + password + "&csrfmiddlewaretoken=" + csrf_token + "&next=/fakebook/"
+#content_length = "Content-Length: " + str(len(content))
+#content_type = "Content-Type: application/x-www-form-urlencoded"
+#connection = "Connection: keep-alive"
+#cookie = "Cookie: csrftoken=" + csrf_token
+
 
 #print(post_msg)
 #print(content)
 #print(content_length)
 #print(content_type)
 
-whole_post = post_msg + "\r\n" + cookie + "\r\n" + content_type + "\r\n" + content_length + "\r\n\r\n" + content
+#whole_post = post_msg + "\r\n" + cookie + "\r\n" + content_type + "\r\n" + content_length + "\r\n\r\n" + content
 
-print(whole_post)
+#print(whole_post)
 
 
 
 #TODO handle cookies
 #TODO Connection: Keepalive
 
-sock.send(whole_post)
+#sock.send(whole_post)
 
-result2 = sock.recv(20000)
+result2 = POST(LOGIN_PAGE, content)
 print(result2)
 
 sessionIDtemp = result2.split("\n")[7].split(" ")[1]
@@ -88,14 +140,16 @@ session_ID = sessionIDtemp[10:len(sessionIDtemp) - 1]
  
 print(session_ID)
 
-sock.send("GET /fakebook/ HTTP/1.1\r\n"
-		"Host: " + parsed_url.netloc + "\r\n"
-		"Referer: " + LOGIN_PAGE + "\r\n"
-		"Cookie: " + sessionIDtemp + "\r\n\r\n")
+#sock.send("GET /fakebook/ HTTP/1.1\r\n"
+#		"Host: " + parsed_url.netloc + "\r\n"
+#		"Referer: " + LOGIN_PAGE + "\r\n"
+#		"Cookie: " + sessionIDtemp + "\r\n\r\n")
 
-foo = sock.recv(100000)
-print(MyHTMLParser().feed(foo))
+foo = GET(HOME_PAGE)
+print(foo)
+#foo = sock.recv(100000)
+MyHTMLParser().feed(foo)
 
-sock.close()
+#sock.close()
 
 
