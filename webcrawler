@@ -8,8 +8,6 @@ import socket
 from HTMLParser import HTMLParser
 from lxml import html
 
-print("Hello world!")
-
 SEEN = []
 FRONTIER = []
 FLAGS = []
@@ -26,8 +24,6 @@ class MyHTMLParser(HTMLParser):
       if link not in SEEN and link not in FRONTIER and '/fakebook/' in link:
         #print("new link!: " + link)
         FRONTIER.append(link)
-    #else:
-    #  print("Encountered a start tag: " + tag + ", atts: " + str(attrs))
  
   def handle_data(self, data):
     if "FLAG" in data:
@@ -49,14 +45,11 @@ HTML_PARSER = MyHTMLParser()
 csrf_token = None
 session_ID = None
 
-def GET(url):
-  #global sock
-
+def get(url):
   parsed_url = urlparse.urlparse(url)
   sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   sock.connect((parsed_url.netloc, 80))
 
-  #print("In GET: " + path + " | " + host)
   sock.send("GET " + parsed_url.path + " HTTP/1.1" + "\n" + "Host: " + parsed_url.netloc + "\n" + getCookies() + "\r\n\r\n")
 
   received = sock.recv(100000)
@@ -64,7 +57,7 @@ def GET(url):
   sock.close()
   return received
 
-def POST(url, content):
+def post(url, content):
 
   parsed_url = urlparse.urlparse(url)
 
@@ -73,7 +66,7 @@ def POST(url, content):
   content_type = "Content-Type: application/x-www-form-urlencoded"
   #connection = keep-alive
   cookie = getCookies()
-  print(cookie) 
+  #print(cookie) 
   
   whole_post = post_msg + "\r\n" + cookie + "\r\n" + content_type + "\r\n" + content_length + "\r\n\r\n" + content
 
@@ -102,40 +95,38 @@ def getCookies():
 
   return cookie
 
-result = GET(LOGIN_PAGE)
-print(result)
+result = get(LOGIN_PAGE)
+#print(result)
 
 split_result = result.split("\r\n")
 
-print(result)
+#print(result)
 HTML_PARSER.feed(result)
-print(csrf_token)
+#print(csrf_token)
 
 content = "username=" + username + "&password=" + password + "&csrfmiddlewaretoken=" + csrf_token + "&next=/fakebook/"
 
-result2 = POST(LOGIN_PAGE, content)
-print(result2)
+result2 = post(LOGIN_PAGE, content)
+#print(result2)
 
 sessionIDtemp = result2.split("\n")[7].split(" ")[1]
 session_ID = sessionIDtemp[10:len(sessionIDtemp) - 1]
  
-print(session_ID)
+#print(session_ID)
 
 
-foo = GET(HOME_PAGE)
-print(foo)
+home = get(HOME_PAGE)
+#print(foo)
 #foo = sock.recv(100000)
-HTML_PARSER.feed(foo)
+HTML_PARSER.feed(home)
 
-print(FRONTIER)
+#print(FRONTIER)
 
 while len(FLAGS) < 5 and FRONTIER:
   site = FRONTIER[0]
   
-  result = GET("http://fring.ccs.neu.edu" + site)
+  result = get("http://fring.ccs.neu.edu" + site)
   HTML_PARSER.feed(result)
 
   FRONTIER.remove(site)
-
-
 
